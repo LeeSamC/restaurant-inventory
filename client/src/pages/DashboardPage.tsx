@@ -2,19 +2,16 @@ import {useQuery} from '@tanstack/react-query'
 
 import { getInventory } from '../modules/inventory/inventory.api'
 
+import { useAuthStore } from '../stores/auth.store'
+
 export default function DashboardPage() {
+
+    const user = useAuthStore(state => state.user)
+
     const {data, isLoading} = useQuery({
         queryKey: ['inventory'],
         queryFn: getInventory
     })
-
-    if(isLoading){
-        return (
-            <main className='p-4'>
-                Loading...
-            </main>
-        )
-    }
 
     const items = data?.items ?? []
 
@@ -24,14 +21,17 @@ export default function DashboardPage() {
 
     return (
         <main className='p-4 pb-24'>
-            <h1 className='text-2xl font-bold'>
-                Dashboard
-            </h1>
+            <div className='mb-6'>
+                <h1 className='text-2xl font-bold'>
+                    Dashboard
+                </h1>
 
-            <p className='mt-1 text-gray-500'>
-                Restaurant inventory overview
-            </p>
-
+                <p className='text-gray-500'>
+                    Welcome back, {' '}
+                    {user?.firstName}
+                </p>
+            </div>
+            
             <div className='mt-6 grid grid-cols-2 gap-3'>
                 <div className='rounded-xl border bg-white p-4'>
                     <p className='text-sx text-gray-500'>
@@ -39,7 +39,7 @@ export default function DashboardPage() {
                     </p>
 
                     <p className='mt-2 text-3xl font-bold'>
-                        {items.length}
+                        {isLoading ? '...' : items.length}
                     </p>
 
                 </div>
@@ -50,7 +50,7 @@ export default function DashboardPage() {
                     </p>
 
                     <p className='mt-2 text-3xl font-bold'>
-                        {lowStock.length}
+                        {isLoading ? '...' : lowStock.length}
                     </p>
                 </div>
 
@@ -60,7 +60,7 @@ export default function DashboardPage() {
                     </p>
 
                     <p className='mt-2 text-3xl font-bold'>
-                        {outOfStock.length}
+                        {isLoading ? '...' : outOfStock.length}
                     </p>
                 </div>
             </div>
@@ -70,22 +70,40 @@ export default function DashboardPage() {
                     Low Stock
                 </h2>
 
-                <div className='space-y-2'>
-                    {lowStock.map(item => (
-                        <div key={item.inventoryItemId} className='rounded-lg border bg-white p-3'>
-                            <div className='flex justify-between'>
-                                <span>
-                                    {item.name}
-                                </span>
+                {lowStock.length === 0 ? (
+                    <div className='rounded-xl border bg-white p-6 text-center text-gray-500'>
+                        No low-stock items
+                    </div>
+                ) : (
+                    <div className='space-y-2'>
+                        {lowStock.map(
+                            item => (
+                                <div
+                                    key={item.inventoryItemId}
+                                    className='rounded-xl border bg-white p-4'
+                                >
+                                    <div className='flex justify-between'>
+                                        <span className='font-medium'>
+                                            {item.name}
+                                        </span>
 
-                                <span>
-                                    {item.currentQuantity}{' '}
-                                    {item.unit}
-                                </span>
-                            </div>
-                        </div>
-                    ))}
-                </div>
+                                        <span>
+                                            {
+                                                item.currentQuantity
+                                            } {' '}
+                                            {
+                                                item.unit
+                                            }
+                                        </span>
+                                    </div>
+
+                                </div>
+                            )
+                        )}
+                    </div>
+                )}
+
+                
             </section>
         </main>
     )
