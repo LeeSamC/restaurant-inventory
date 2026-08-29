@@ -32,7 +32,7 @@ const movementSchema = z.object({
 
 router.get('/', async (req, res) => {
     try{
-        const items = db.select().from(inventoryItems).where(eq(inventoryItems.active, true)).orderBy(inventoryItems.name)
+        const items = await db.select().from(inventoryItems).where(eq(inventoryItems.active, true)).orderBy(inventoryItems.name)
 
         return res.json({items})
     }catch (error) {
@@ -75,7 +75,7 @@ router.post('/', async (req, res) => {
             supplierId: data.supplierId,
             unit: data.unit,
             minimumQuantity: String(data.minimumQuantity),
-            maximunQuantity:
+            maximumQuantity:
                 data.maximumQuantity !== undefined
                 ? String(data.maximumQuantity)
                 : null,
@@ -261,7 +261,7 @@ router.post('/:id/waste', async (req:AuthenticateRequest, res) => {
 
         const newQuantity = currentQuantity - data.quantity
 
-        const result = db.transaction(async tx => {
+        const result = await db.transaction(async tx => {
             const [movement] = await tx
                 .insert(inventoryMovements)
                 .values({
