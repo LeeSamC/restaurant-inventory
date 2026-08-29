@@ -1,11 +1,18 @@
 import type {Request, Response, NextFunction} from 'express'
 import jwt from 'jsonwebtoken'
 
+export type UserRole = 
+    | 'ADMIN'
+    | 'MANAGER'
+    | 'EMPLOYEE'
+
+export type AuthUser = {
+    userId: string
+    role: UserRole
+}
+
 export interface AuthenticateRequest extends Request {
-    user?: {
-        userId: string
-        role: 'ADMIN' | 'MANAGER' | 'EMPLOYEE'
-    }
+    user?: AuthUser
 }
 
 export function authenticateToken(
@@ -23,12 +30,12 @@ export function authenticateToken(
         const decoded = jwt.verify(
             token,
             process.env.JWT_SECRET!
-        )as {
-            userId: string
-            role: 'ADMIN' | 'MANAGER' | 'EMPLOYEE'
-        }
+        )as AuthUser
 
-        req.user = decoded
+        req.user = {
+            userId: decoded.userId,
+            role: decoded.role
+        }
 
         next()
     }catch {
