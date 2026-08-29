@@ -1,23 +1,25 @@
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api'
 
-type RequestOptions = Omit<RequestInit, 'body'> & {
+type ApiOptions = {
+    method?: string
     body?: unknown
+    headers?: HeadersInit
 }
 
 export async function api<T>(
     endpoint: string,
-    options: RequestOptions = {}
+    options: ApiOptions = {}
 ): Promise<T> {
-    const headers = new Headers(
-        options.headers
-    )
+    const headers = new Headers(options.headers)
 
-    headers.set('Content-Type', 'application/json')
+    if(options.body !== undefined){
+        headers.set('Content-Type', 'application/json')
+    }
 
     const response = await fetch(
         `${API_URL}${endpoint}`,
         {
-            ...options,
+            method: options.method || 'GET',
             headers,
             credentials: 'include',
             body:
@@ -27,7 +29,13 @@ export async function api<T>(
         }
     )
 
-    const data = await response.json()
+    let data: any = null
+
+    try{
+        data = await response.json()
+    }catch {
+        data = null
+    }
 
     if(!response.ok){
         throw new Error(
@@ -35,5 +43,5 @@ export async function api<T>(
         )
     }
 
-    return data
+    return data as T
 }
