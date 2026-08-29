@@ -2,30 +2,70 @@ import {create} from 'zustand'
 
 import { api } from '../lib/api'
 
+export type UserRole = 
+    | 'ADMIN'
+    | 'MANAGER'
+    | 'EMPLOYEE'
+
+
 export type User = {
     userId: string
     firstName: string
     lastName: string
     username: string
-    role: 'ADMIN' | 'MANAGER' | 'EMPLOYEE'
+    role: UserRole
 }
 
 type AuthState = {
     user: User | null
     isLoading: boolean
 
+    isInitialized: boolean
+
+    checkAuth: () => Promise<void>
+
     login: (
         username: string,
         password: string,
     ) => Promise<void>
 
+    register: (data: {
+        firstName: string
+        lastName: string
+        username: string
+        password: string
+        confirmPassword: string
+    }) => Promise<void>
+
     logout: () => Promise<void>
 }
 
 export const useAuthStore = create<AuthState>(
-    set => ({
+    (set) => ({
         user: null,
         isLoading: false,
+        isInitialized: false,
+
+        checkAuth:
+            async () => {
+                set({
+                    isLoading: true
+                })
+
+                try{
+                    const result = await api<{user: User}>('/auth/me')
+
+                    set({user: result.user})
+                }catch {
+                    set({user: null})
+                }finally{
+                    set({
+                        isLoading: false,
+
+                        isInitialized: true
+                    })
+                }
+            },
 
         login: async (
             username,
@@ -56,14 +96,38 @@ export const useAuthStore = create<AuthState>(
             }
         },
 
-        logout: async () => {
-            await api('/auth/logout', {
-                method: 'POST'
-            })
 
-            set({
-                user: null
-            })
+        register:
+            async (data) => {
+                set({
+                    isLoading: true
+                })
+
+                try{
+                    const result = await api<{user: User}>('/auth/register',{
+                        method: 'POST',
+                        body: data
+                    })
+
+                    set({user: result.user})
+                }finally{
+                    set({isLoading: false})
+                }
+            },
+
+        logout: async () => {
+            try{
+                await api('/auth/logout', {
+                    method: 'POST'
+                })
+            }finally{
+                set({
+                    user: null
+                })
+            }
+           
+
+            
         }
     })
 )
