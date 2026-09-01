@@ -21,6 +21,15 @@ const createInventorySchema = z.object({
     maximumQuantity: z.coerce.number().min(0).optional(),
     costPerUnit: z.coerce.number().min(0).optional()
 })
+.refine(
+    data => 
+        data.maximumQuantity === undefined || 
+        data.maximumQuantity >= data.minimumQuantity,
+    {
+        message: 'Maximum quantity must be greater than or equal to minimum quantity',
+        path: ['maximumQuantity']
+    }
+)
 
 const movementSchema = z.object({
     quantity: z.coerce.number().positive(),
@@ -160,7 +169,7 @@ router.post('/:id/receive', async (req: AuthenticateRequest, res) => {
         if( error instanceof z.ZodError) {
             return res.status(400).json({
                 message: 'Invalid Input',
-                errors: error.flatten
+                errors: z.treeifyError(error)
             })
         }
 
