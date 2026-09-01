@@ -1,19 +1,6 @@
 import {api} from '../../lib/api'
 
-export type InventoryItem = {
-    inventoryItemId: string
-    name: string
-    categoryId: string | null
-    supplierId: string | null
-    unit: string
-    currentQuantity: string
-    minimumQuantity: string
-    maximumQuantity: string | null
-    costPerUnit: string | null
-    active: boolean
-    createdAt: string
-    updatedAt: string
-}
+import type { InventoryItem, InventoryMovement } from './inventory.types'
 
 export async function getInventory() {
     return api<{
@@ -26,23 +13,6 @@ export async function getInventoryItem(id: string) {
         item: InventoryItem
         movements: InventoryMovement[]
     }>(`/inventory/${id}`)
-}
-
-export type InventoryMovement = {
-    movementId: string
-    inventoryItemId: string
-    userId: string
-    type:
-        | 'RECEIVED'
-        | 'USED'
-        | 'WASTED'
-        | 'ADJUSTMENT'
-    quantity: string
-    unitCost: string | null
-    referenceNumber: string | null
-    reason: string | null
-    notes: string | null
-    createdAt: string
 }
 
 export async function createInventoryItem(
@@ -76,7 +46,10 @@ export async function receiveInventory(
         unitCost?: number
     }
 ){
-    return api(`/inventory/${id}/receive`, {
+    return api<{
+        item: InventoryItem
+        movement: InventoryMovement
+    }>(`/inventory/${id}/receive`, {
         method: 'POST',
         body: data
     })
@@ -90,7 +63,10 @@ export async function useInventory(
         notes?: string
     }
 ){
-    return api(`/inventory/${id}/use`, {
+    return api<{
+        item: InventoryItem
+        movement: InventoryMovement
+    }>(`/inventory/${id}/use`, {
         method: 'POST',
         body: data
     })
@@ -104,7 +80,10 @@ export async function recordWaste(
         notes?: string
     }
 ){
-    return api(`/inventory/${id}/waste`, {
+    return api<{
+        item: InventoryItem
+        movement: InventoryMovement
+    }>(`/inventory/${id}/waste`, {
         method: 'POST',
         body: data
     })
