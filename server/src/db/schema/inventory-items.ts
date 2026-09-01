@@ -13,7 +13,7 @@ export const inventoryItems = pgTable('inventory_items', {
     minimumQuantity: numeric('minimum_quantity', {precision: 12, scale: 3}).notNull().default('0'),
     maximumQuantity: numeric('maximum_quantity', {precision: 12, scale: 3}),
     costPerUnit: numeric('cost_per_unit', {precision: 12, scale: 2}),
-    active: boolean('actice').notNull().default(true),
+    active: boolean('active').notNull().default(true),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull()
 })
