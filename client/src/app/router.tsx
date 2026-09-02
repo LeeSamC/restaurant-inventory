@@ -7,6 +7,7 @@ import LoginPage from '../modules/auth/pages/LoginPage'
 import RegistrationPage from '../modules/auth/pages/RegistrationPage'
 import ProtectedRoute from '../componenets/ProtectedRoute'
 import PublicRoute from '../componenets/PublicRoute'
+import InventoryDetailsPage from '../modules/inventory/pages/InventoryDetailsPage'
 
 
 export const router = 
@@ -41,6 +42,11 @@ export const router =
                         {
                             path: '/inventory',
                             element: <InventoryPage />
+                        },
+
+                        {
+                            path: '/inventory/:inventoryItemId',
+                            element: <InventoryDetailsPage />
                         }
                     ]
                 }
