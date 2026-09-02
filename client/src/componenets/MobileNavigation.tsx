@@ -27,8 +27,8 @@ export default function MobileNavigation() {
     ]
 
     return (
-        <nav className="fixed botton-0 left-0 right-0 border-t bg-white">
-            <div className="mx-auto flex max-w-lg justify-around">
+        <nav className="fixed bottom-0 left-0 right-0 z-50 border-t bg-white">
+            <div className="flex h-16 items-center justify-around">
                 {links.map(link => {
                     const Icon = link.icon
 
