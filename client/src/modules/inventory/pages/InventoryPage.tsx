@@ -116,7 +116,7 @@ export default function InventoryPage() {
 
             {showAddForm && (
                 <div className='fixed inset-0 z-50 flex items-end justify-center bg-black/40'>
-                    <div className="max-h-[90vh] w-full overflow-y-auto rounded-t-2xl bg-white p-5">
+                    <div className="max-h-[90vh] w-full overflow-y-auto rounded-t-2xl bg-white p-5 pb-20">
                         <div className="mb-5 flex items-center justify-between">
                             <div>
                                 <h2 className='text-xl font-bold'>
