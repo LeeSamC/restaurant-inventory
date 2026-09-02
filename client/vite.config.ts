@@ -16,7 +16,7 @@ export default defineConfig({
         short_name: 'Inventory',
         description: 'Restaurant inventory management system',
         theme_color: '#111827',
-        background_color: 'f3f4f6',
+        background_color: '#f3f4f6',
         display: 'standalone',
 
         icons: [
