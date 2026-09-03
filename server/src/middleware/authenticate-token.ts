@@ -29,7 +29,7 @@ export function authenticateToken(
     try{
         const decoded = jwt.verify(
             token,
-            process.env.JWT_SECRET!
+            process.env.ACCESS_TOKEN_SECRET!
         )as AuthUser
 
         req.user = {
@@ -38,7 +38,13 @@ export function authenticateToken(
         }
 
         next()
-    }catch {
+    }catch (error){
+        if(error instanceof jwt.TokenExpiredError) {
+            return res.status(401).json({
+                message: 'Token expired',
+                code: 'TOKEN_EXPIRED'
+            })
+        }
         return res.status(401).json({message: 'Invalid or expired token'})
     }
 }
