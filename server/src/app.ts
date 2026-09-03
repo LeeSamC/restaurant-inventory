@@ -1,6 +1,7 @@
 import express from 'express'
 import cors from 'cors'
 import cookieParser from 'cookie-parser'
+import helmet from 'helmet'
 
 import inventoryRouter from './modules/inventory/inventory.routes.js'
 import authRouter from './modules/auth/auth.routes.js'
@@ -13,9 +14,10 @@ app.use(
         credentials: true
     })
 )
-
+app.use(helmet())
 app.use(express.json())
 app.use(cookieParser())
+
 
 app.get('/api/health', (req, res) => {
     res.json({
