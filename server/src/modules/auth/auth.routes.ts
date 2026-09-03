@@ -6,9 +6,12 @@ import {z} from 'zod'
 
 import {db} from '../../db/index.js'
 import {users} from '../../db/schema/users.js'
+import { refreshTokens } from '../../db/schema/refresh-tokens.js'
 
-import { authenticateToken, type AuthenticateRequest } from '../../middleware/authenticate-token.js'
-import { access } from 'fs'
+import { authenticateToken, UserRole, type AuthenticateRequest } from '../../middleware/authenticate-token.js'
+import { authenticateRefreshToken } from '../../middleware/authenticate-refresh-token.js'
+
+import rateLimit from 'express-rate-limit'
 
 const router = Router()
 
@@ -32,41 +35,72 @@ const loginSchema = z.object({
     password: z.string()
 })
 
-function createAccessToken(
+const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 5,
+    message: {error: 'Too many authentication attempts. Please try again after 15 minutes'},
+    standardHeaders: true,
+    legacyHeaders: false
+})
+
+function issueToken(
     userId: string,
     role: 'ADMIN' | 'MANAGER' | 'EMPLOYEE'
     ) {
 
-    if(!process.env.JWT_SECRET) {
+    if(!process.env.ACCESS_TOKEN_SECRET) {
         throw new Error(
-            'JWT_SECRET is not configured'
+            'ACCESS_TOKEN_SECRET is not configured'
         )
     }
-    return jwt.sign(
-        {
-            userId,
-            role
-        },
-        process.env.JWT_SECRET,
-        {
-            expiresIn: '15m'
-        }
-    )
+    return jwt.sign({userId,role},process.env.ACCESS_TOKEN_SECRET,{expiresIn: '15m'})
+}
+
+function issueRefreshToken(userId: string,  role: 'ADMIN' | 'MANAGER' | 'EMPLOYEE'){
+    if(!process.env.REFRESH_TOKEN_SECRET) {
+        throw new Error('REFRESH_TOKEN_SECRET is not configured')
+    }
+
+    return jwt.sign({userId, role}, process.env.REFRESH_TOKEN_SECRET, {expiresIn: '7d'})
 }
 
 function setAuthCookie(
-    res: any, token: string
+    res: any, accessToken: string, refreshToken: string
 ) {
-    res.cookie('accessToken', token, {
+    const isProduction = process.env.NODE_ENV === 'production'
+    const cookieOptions = {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        samesite: 'lax',
-        maxAge: 15 * 60 * 1000,
+        secure: isProduction,
+        sameSite: 'lax' as const,
         path: '/'
+    }
+
+    res.cookie('accessToken', accessToken, {
+        ...cookieOptions,
+        maxAge: 15 * 60 * 1000,
+   
+    })
+
+    res.cookie('refreshToken', refreshToken, {
+        ...cookieOptions,
+        maxAge: 7 * 24 * 60 * 60 * 1000 
     })
 }
 
-router.post('/register', async (req, res) => {
+function clearAuthCookies(res: any){
+    const isProduction = process.env.NODE_ENV === 'production'
+    const cookieOptions = {
+        httpOnly: true,
+        secure: isProduction,
+        sameSite: 'lax' as const,
+        path: '/'
+    }
+
+    res.clearCookie('accessToken', cookieOptions)
+    res.clearCookie('refreshToken', cookieOptions)
+}
+
+router.post('/register', authLimiter, async (req, res) => {
     try{
         const data = registerSchema.parse(req.body)
 
@@ -95,8 +129,17 @@ router.post('/register', async (req, res) => {
             role: users.role
         })
 
-        const accessToken = createAccessToken(user.userId, user.role)
-        setAuthCookie(res, accessToken)
+        const accessToken = issueToken(user.userId, user.role)
+        const refreshToken = issueRefreshToken(user.userId, user.role)
+
+        await db.insert(refreshTokens).values({
+            token: refreshToken,
+            userId: user.userId,
+            expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+            revoked: false
+        })
+
+        setAuthCookie(res, accessToken, refreshToken)
 
 
         return res.status(201).json({user})
@@ -114,7 +157,7 @@ router.post('/register', async (req, res) => {
     }
 })
 
-router.post('/login', async (req, res) => {
+router.post('/login', authLimiter, async (req, res) => {
     try{
         const data = loginSchema.parse(req.body)
 
@@ -135,9 +178,19 @@ router.post('/login', async (req, res) => {
             return res.status(401).json({message: 'Invalid username or password'})
         }
 
-        const accessToken = createAccessToken(user.userId, user.role)
+        await db.delete(refreshTokens).where(eq(refreshTokens.userId, user.userId))
 
-        setAuthCookie(res, accessToken)
+        const accessToken = issueToken(user.userId, user.role)
+        const refreshToken = issueRefreshToken(user.userId, user.role)
+
+        await db.insert(refreshTokens).values({
+            token: refreshToken,
+            userId: user.userId,
+            expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+            revoked: false
+        })
+
+        setAuthCookie(res, accessToken, refreshToken)
 
         return res.json({
             user: {
@@ -156,6 +209,47 @@ router.post('/login', async (req, res) => {
         console.error(error)
 
         return res.status(500).json({message: 'Internal server error'})
+    }
+})
+
+router.post('/refresh', authenticateRefreshToken, async (req: AuthenticateRequest, res) => {
+    try{
+        if(!req.user) {
+            return res.status(401).json({ message: 'Authentication required' })
+        }
+
+        const oldRefreshToken = req.cookies.refreshToken
+
+        if (!oldRefreshToken) {
+            return res.status(401).json({ message: 'Refresh token required' })
+        }
+
+        await db.update(refreshTokens).set({revoked: true,}).where(eq(refreshTokens.token, oldRefreshToken))
+
+        const newAccessToken = issueToken(req.user.userId, req.user.role)
+        const newRefreshToken = issueRefreshToken(req.user.userId, req.user.role)
+
+        await db.insert(refreshTokens).values({
+            token: newRefreshToken,
+            userId: req.user.userId,
+            expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+            revoked: false
+        })
+
+        setAuthCookie(res, newAccessToken, newRefreshToken)
+
+        return res.json({ 
+            message: 'Tokens refreshed successfully',
+            // Optionally return user data if needed
+            user: {
+                userId: req.user.userId,
+                role: req.user.role
+            }
+        })
+    }catch (error) {
+        console.error('Refresh token error', error)
+        clearAuthCookies(res)
+        return res.status(500).json({ message: 'Failed to refresh token' })
     }
 })
 
@@ -193,15 +287,24 @@ router.get('/me', authenticateToken, async (req: AuthenticateRequest, res) => {
     }
 })
 
-router.post('/logout', (_req, res) => {
-    res.clearCookie('accessToken', {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        path: '/'
-    })
+router.post('/logout', async (req, res) => {
+    try {
+        const refreshToken = req.cookies.refreshToken
 
-    return res.json({message: 'Logged out'})
+        if (refreshToken) {
+            await db.update(refreshTokens)
+                .set({ revoked: true })
+                .where(eq(refreshTokens.token, refreshToken))
+        }
+
+        clearAuthCookies(res)
+
+        return res.json({ message: 'Logged out successfully' })
+    } catch (error) {
+        console.error('Logout error', error)
+        clearAuthCookies(res)
+        return res.json({ message: 'Logged out' })
+    }
 })
 
 export default router
