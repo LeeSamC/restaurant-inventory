@@ -5,6 +5,7 @@ import helmet from 'helmet'
 
 import inventoryRouter from './modules/inventory/inventory.routes.js'
 import authRouter from './modules/auth/auth.routes.js'
+import profileRouter from './modules/profile/profile.routes.js'
 
 const app = express()
 
@@ -28,5 +29,6 @@ app.get('/api/health', (req, res) => {
 
 app.use('/api/auth', authRouter)
 app.use('/api/inventory', inventoryRouter)
+app.use('/api/profile', profileRouter)
 
 export default app
