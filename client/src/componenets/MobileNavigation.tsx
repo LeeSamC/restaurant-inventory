@@ -10,7 +10,7 @@ export default function MobileNavigation() {
             icon: Home
         },
         {
-            to: './inventory',
+            to: '/inventory',
             label: 'Inventory',
             icon: Package
         },
